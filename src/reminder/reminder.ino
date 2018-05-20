@@ -7,19 +7,20 @@
 */
 
 #include <WiFiClientSecure.h>
-#include <WiFi.h>
-#include <ESPmDNS.h>
-#include <WiFiUdp.h>
-#include <ArduinoOTA.h>
+#include "Adafruit_MQTT.h"
+#include "Adafruit_MQTT_Client.h"
+#include "esp_deep_sleep.h"
 
+//git test 
 #include "passwords.h"
 
 const char*  server = "script.google.com";  // Server URL
 
-// www.howsmyssl.com root certificate authority, to verify the server
-// change it to your server root CA
-// SHA1 fingerprint is broken now!
+#define uS_TO_S_FACTOR 1000000  /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP  5       /* Time ESP32 will go to sleep (in seconds) */
 
+// io.adafruit.com SHA1 fingerprint
+const char* fingerprint = "AD 4B 64 B3 67 40 B5 FC 0E 51 9B BD 25 E9 7F 88 B6 2A A3 5B";
 
 
 // You can use x.509 client certificates if you want
@@ -30,14 +31,35 @@ const char*  server = "script.google.com";  // Server URL
 
 WiFiClientSecure client;
 
+// Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
+Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_KEY);
 
-#define TRIGGER 5
+
+// Setup a feed called 'test' for publishing.
+// Notice MQTT paths for AIO follow the form: <username>/feeds/<feedname>
+Adafruit_MQTT_Publish postboxQ = Adafruit_MQTT_Publish(&mqtt, AIO_USERNAME "/feeds/postbox");
+
+
+#define TRIGGER 2
 #define ECHO    4
+#define ULTRASENSOR_ENABLE_PIN 15
+
+// Bug workaround for Arduino 1.6.6, it seems to need a function declaration
+// for some reason (only affects ESP8266, likely an arduino-builder bug).
+void MQTT_connect();
+void verifyFingerprint();
 
 
 int read_distance() {
   long duration, distance;
-  
+  digitalWrite(ULTRASENSOR_ENABLE_PIN, LOW);
+   
+     int sum = 0;
+     int n = 10;
+ 
+  for (int i=0; i < n; i++) {
+    
+ 
   digitalWrite(TRIGGER, LOW);  
   delayMicroseconds(2); 
   
@@ -47,17 +69,23 @@ int read_distance() {
   digitalWrite(TRIGGER, LOW);
   
   duration = pulseIn(ECHO, HIGH);
+ 
   
   distance = (duration/2) / 29.1;
+   sum += distance;
+   delay(100);
+  }
+    digitalWrite(ULTRASENSOR_ENABLE_PIN, HIGH);
 
   
-  return distance;
+  return sum / n;
 
   
   
 }
 
-void set_reminder() {
+
+void connect_wifi() {
   Serial.print("Attempting to connect to SSID: ");
   Serial.println(ssid);
   WiFi.begin(ssid, password);
@@ -70,13 +98,14 @@ void set_reminder() {
   }
 
   Serial.print("Connected to ");
-  Serial.println(ssid);
+ 
+  
+}
 
-  client.setCACert(test_root_ca);
-  //client.setCertificate(test_client_key); // for client verification
-  //client.setPrivateKey(test_client_cert);  // for client verification
+void set_reminder() {
+ Serial.println(ssid);
 
-  Serial.println("\nStarting connection to server...");
+   Serial.println("\nStarting connection to server...");
    String nextUrl;
   if (!client.connect(server, 443))
     Serial.println("Connection failed!");
@@ -91,7 +120,9 @@ void set_reminder() {
     while (client.connected()) {
       String line = client.readStringUntil('\n');
       if (line.startsWith("Location:")) {
+          Serial.println(line);
           nextUrl = line.substring(9);
+          Serial.println(nextUrl);
           break;
         
       }
@@ -102,9 +133,10 @@ void set_reminder() {
     }
     client.stop();
   }
+   Serial.println(String("Next url") + nextUrl);
 
    Serial.println("\nRedirect...");
-   client.setCACert(second_test_root_ca);
+  // client.setCACert(second_test_root_ca);
   if (!client.connect("script.googleusercontent.com", 443))
     Serial.println("Connection failed!");
   else {
@@ -137,79 +169,97 @@ void set_reminder() {
 }
 
 
-void setupOTA() {
- 
-  Serial.println("Setting OTA");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
+void verifyFingerprint() {
+
+  const char* host = AIO_SERVER;
+
+  Serial.print("Connecting to ");
+  Serial.println(host);
+
+  if (! client.connect(host, AIO_SERVERPORT)) {
+    Serial.println("Connection failed. Halting execution.");
+    while(1);
   }
+  
 
-  // Port defaults to 3232
-  // ArduinoOTA.setPort(3232);
-
-  // Hostname defaults to esp3232-[MAC]
-  // ArduinoOTA.setHostname("myesp32");
-
-  // No authentication by default
-  // ArduinoOTA.setPassword("admin");
-
-  // Password can be set with it's md5 value as well
-  // MD5(admin) = 21232f297a57a5a743894a0e4a801fc3
-  // ArduinoOTA.setPasswordHash("21232f297a57a5a743894a0e4a801fc3");
-
-  ArduinoOTA
-    .onStart([]() {
-      String type;
-      if (ArduinoOTA.getCommand() == U_FLASH)
-        type = "sketch";
-      else // U_SPIFFS
-        type = "filesystem";
-
-      // NOTE: if updating SPIFFS this would be the place to unmount SPIFFS using SPIFFS.end()
-      Serial.println("Start updating " + type);
-    })
-    .onEnd([]() {
-      Serial.println("\nEnd");
-    })
-    .onProgress([](unsigned int progress, unsigned int total) {
-      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-    })
-    .onError([](ota_error_t error) {
-      Serial.printf("Error[%u]: ", error);
-      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-      else if (error == OTA_END_ERROR) Serial.println("End Failed");
-    });
-
-  ArduinoOTA.begin();
-
-  Serial.println("Ready");
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
 }
 
+// Function to connect and reconnect as necessary to the MQTT server.
+// Should be called in the loop function and it will take care if connecting.
+void MQTT_connect() {
+  int8_t ret;
+
+  // Stop if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
+
+  Serial.print("Connecting to MQTT... ");
+
+  uint8_t retries = 3;
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+       Serial.println(mqtt.connectErrorString(ret));
+       Serial.println("Retrying MQTT connection in 5 seconds...");
+       mqtt.disconnect();
+       delay(5000);  // wait 5 seconds
+       retries--;
+       if (retries == 0) {
+         // basically die and wait for WDT to reset me
+         while (1);
+       }
+  }
+
+  Serial.println("MQTT Connected!");
+}
+
+
 void setup() {
-  pinMode(TRIGGER, OUTPUT);
-  pinMode(ECHO, INPUT);
   
   //Initialize serial and wait for port to open:
   Serial.begin(115200);
+  connect_wifi();
+  //set_reminder();
+
+  
+  pinMode(TRIGGER, OUTPUT);
+  pinMode(ECHO, INPUT);
+  digitalWrite(TRIGGER, LOW);
+  pinMode(ULTRASENSOR_ENABLE_PIN, OUTPUT);
+   digitalWrite(TRIGGER, HIGH);
+   /*
   delay(100);
 
-  setupOTA();
+
+   
+  // check the fingerprint of io.adafruit.com's SSL cert
+//  verifyFingerprint();
+   */
+
+   
+   MQTT_connect();
+   postboxQ.publish(read_distance());
+   
+
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+  esp_deep_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_OFF);
   
-  set_reminder();
+  
+  Serial.println("Going to sleep now");
+  esp_deep_sleep_start();
+  Serial.println("This will never be printed");
+  
 
 }
 
 void loop() {
-   Serial.println(read_distance());
-   ArduinoOTA.handle();
+ // Serial.println(read_distance());
+ Serial.println(read_distance());
+  delay(3000);
+ 
 
+
+   
 }
