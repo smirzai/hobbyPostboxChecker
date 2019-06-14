@@ -88,6 +88,7 @@ void setup() {
   pinMode(LED_BUILTIN, OUTPUT);
 hw_timer_t * timer = NULL;
  timer = timerBegin(0, 80, true);
+ 
 
 
 }
@@ -96,6 +97,9 @@ boolean result = 0;
 
 void loop() {
   ArduinoOTA.handle();
+/*
+
+  
    counter++;
    counter2++;
    
@@ -118,5 +122,6 @@ void loop() {
       
    } 
   
-  
+  */
+   
 }
