@@ -3,6 +3,7 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
+
 #include "passwords.h"
 
 const int infraredLedPin = 16;
@@ -14,23 +15,12 @@ long counter = 0;
 long counter2 = 0;
 boolean toggle = 1;
 boolean toggle2 = 1;
+
 #define LED_BUILTIN 5
 #define SENSOR_IN_PIN 17
- 
 
-void setup() {
-  
-   // configure LED PWM functionalitites
-  ledcSetup(infraredLedChannel, infraredLedFreq, infraredLedResolution);
-   pinMode(SENSOR_IN_PIN, INPUT_PULLUP);
-
-  
-    
-   // attach the channel to the GPIO to be controlled
-  ledcAttachPin(infraredLedPin, infraredLedChannel);
-  ledcWrite(infraredLedChannel, 0);
-  
-  Serial.begin(115200);
+void setup_ota() {
+   Serial.begin(115200);
   Serial.println("Booting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -85,9 +75,30 @@ void setup() {
   Serial.println("Ready");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  
+}
+
+void setup() {
+
+  setup_ota();
+  
+   // configure LED PWM functionalitites
+  ledcSetup(infraredLedChannel, infraredLedFreq, infraredLedResolution);
+
+     // attach the channel to the GPIO to be controlled
+  ledcAttachPin(infraredLedPin, infraredLedChannel);
+
+
+  pinMode(SENSOR_IN_PIN, INPUT_PULLUP);
+
+  
+    
+  ledcWrite(infraredLedChannel, 0);
+  
+ 
   pinMode(LED_BUILTIN, OUTPUT);
-hw_timer_t * timer = NULL;
- timer = timerBegin(0, 80, true);
+ 
+ 
  
 
 
@@ -95,9 +106,17 @@ hw_timer_t * timer = NULL;
 
 boolean result = 0;
 
+
+void isOneLedBlocked() {
+   hw_timer_t * timer = NULL;
+   timer = timerBegin(0, 80, true);
+
+  
+}
+
 void loop() {
   ArduinoOTA.handle();
-/*
+
 
   
    counter++;
@@ -121,7 +140,8 @@ void loop() {
       ledcWrite(infraredLedChannel, 0);
       
    } 
+   
   
-  */
+
    
 }
