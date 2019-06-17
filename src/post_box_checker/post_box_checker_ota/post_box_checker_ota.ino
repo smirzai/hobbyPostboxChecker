@@ -78,6 +78,54 @@ void setup_ota() {
   
 }
 
+boolean result = 0;
+
+void IRAM_ATTR turnOffLeds() {
+   ledcWrite(infraredLedChannel, 0);
+ 
+}
+ 
+void isOneLedBlocked() {
+   hw_timer_t * timer = NULL;
+
+   // initialize time 0, prescale 80, count up, each tick is 1 microsecond
+   timer = timerBegin(0, 80, true);
+   timerAttachInterrupt(timer, &turnOffLeds, true);
+
+   // turn on led singaling
+   ledcWrite(infraredLedChannel, 128);
+
+   // set timer for 5 ms, to turn off led signalling
+   timerAlarmWrite(timer, 5000, false);
+   
+   timerAlarmEnable(timer);
+
+  
+}
+
+
+void IRAM_ATTR periodicEvent() {
+  
+   isOneLedBlocked();
+ 
+}
+
+void setup_timers() {
+  
+   hw_timer_t * timer2 = NULL;
+
+   // initialize time 0, prescale 80, count up, each tick is 1 microsecond
+   timer2 = timerBegin(1, 80, true);
+   timerAttachInterrupt(timer2, &periodicEvent, true);
+
+
+   // set timer for 5 ms, to turn off led signalling
+   timerAlarmWrite(timer2, 500000, true);
+   
+   timerAlarmEnable(timer2);
+  
+}
+
 void setup() {
 
   setup_ota();
@@ -100,46 +148,15 @@ void setup() {
  
  
  
+  setup_timers();
 
 
 }
 
-boolean result = 0;
-
-
-void isOneLedBlocked() {
-   hw_timer_t * timer = NULL;
-   timer = timerBegin(0, 80, true);
-
-  
-}
-
+ 
 void loop() {
   ArduinoOTA.handle();
 
-
-  
-   counter++;
-   counter2++;
-   
-   if (counter2 > 50000) {
-      counter2 = 0;
-      counter = 0;
-      
-      toggle2 = !toggle2;
-     
-       ledcWrite(infraredLedChannel, 128
-       );
-      
-   }
-   if (counter >= 200 && toggle2) {
-      counter = 0;
-      toggle2 = 0;
-      digitalWrite(LED_BUILTIN, digitalRead(SENSOR_IN_PIN));
-     
-      ledcWrite(infraredLedChannel, 0);
-      
-   } 
    
   
 
