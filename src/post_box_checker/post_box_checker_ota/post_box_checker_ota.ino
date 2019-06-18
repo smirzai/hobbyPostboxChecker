@@ -19,6 +19,13 @@ boolean toggle2 = 1;
 #define LED_BUILTIN 5
 #define SENSOR_IN_PIN 17
 
+
+hw_timer_t * timer = NULL;
+
+volatile long infrared_total_down_time;
+volatile long infrared_down_timestamp;
+
+
 void setup_ota() {
    Serial.begin(115200);
   Serial.println("Booting");
@@ -82,23 +89,52 @@ boolean result = 0;
 
 void IRAM_ATTR turnOffLeds() {
    ledcWrite(infraredLedChannel, 0);
+   detachInterrupt(SENSOR_IN_PIN);
+   digitalWrite(LED_BUILTIN, infrared_total_down_time > 10000);
+   
+   Serial.println(infrared_total_down_time);
  
 }
+
+
+
+
+void IRAM_ATTR infrared_change() {
+  if (digitalRead(SENSOR_IN_PIN)) {
+     infrared_down_timestamp = esp_timer_get_time();
+    
+  } else {
+    infrared_total_down_time += esp_timer_get_time() - infrared_down_timestamp;
+    
+    
+  }
+  
+  
+  
+}
+ 
  
 void isOneLedBlocked() {
-   hw_timer_t * timer = NULL;
-
-   // initialize time 0, prescale 80, count up, each tick is 1 microsecond
+  
+// initialize time 0, prescale 80, count up, each tick is 1 microsecond
    timer = timerBegin(0, 80, true);
+   
    timerAttachInterrupt(timer, &turnOffLeds, true);
 
-   // turn on led singaling
-   ledcWrite(infraredLedChannel, 128);
+  
 
    // set timer for 5 ms, to turn off led signalling
    timerAlarmWrite(timer, 5000, false);
    
+infrared_total_down_time += 10;
+    // turn on led singaling
+   ledcWrite(infraredLedChannel, 128);
    timerAlarmEnable(timer);
+   infrared_total_down_time = 0;
+   infrared_down_timestamp = 0;
+   
+   attachInterrupt(SENSOR_IN_PIN, infrared_change, CHANGE);
+
 
   
 }
@@ -110,8 +146,13 @@ void IRAM_ATTR periodicEvent() {
  
 }
 
+
 void setup_timers() {
-  
+   // set inner led timer
+   
+   
+
+   // set timer 2, cover timer
    hw_timer_t * timer2 = NULL;
 
    // initialize time 0, prescale 80, count up, each tick is 1 microsecond
@@ -120,7 +161,7 @@ void setup_timers() {
 
 
    // set timer for 5 ms, to turn off led signalling
-   timerAlarmWrite(timer2, 500000, true);
+   timerAlarmWrite(timer2, 100000, true);
    
    timerAlarmEnable(timer2);
   
