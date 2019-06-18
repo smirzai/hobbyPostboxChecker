@@ -1,0 +1,14 @@
+
+IP: 192.168.178.44
+Parts:
+   LED reciever: VS-1838B
+   LED Sender:  v_drop = 1.22
+   Q1: 2n2222
+
+
+
+
+
+
+
+
