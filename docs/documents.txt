@@ -4,6 +4,7 @@ Parts:
    LED reciever: VS-1838B
    LED Sender:  v_drop = 1.22
    Q1: 2n2222
+   HCF4075BE: TRIPLE 3 INPUT OR GATE
 
 
 
