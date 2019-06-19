@@ -6,7 +6,7 @@ Parts:
    Q1: 2n2222
    HCF4075BE: TRIPLE 3 INPUT OR GATE
 
-
+Schematics: https://easyeda.com/editor#id=aa2dafc8ea954bf8b86dfeb11655761e|f2cc47097adb4832997090cfc2472869
 
 
 
