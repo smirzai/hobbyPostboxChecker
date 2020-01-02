@@ -1,10 +1,10 @@
-Requirements for Hobby PostboxChecker
+*Requirements for Hobby PostboxChecker
 
-* Circuit should be off on stand still mode 
-* When cover moves to vertical position, the circuit should turn on
-* The circuit waits for  1 minute, checks if there is any email and turns itself off
-* If there is a mail, it sends a message to MQTT containing these information:
-** Time
-** Battery status
-* The current consumption should be zero on stand still mode
-* One 1 Ah battery should last for at least a year
+** Circuit should be off on stand still mode 
+** When cover moves to vertical position, the circuit should turn on
+** The circuit waits for  1 minute, checks if there is any email and turns itself off
+** If there is a mail, it sends a message to MQTT containing these information:
+*** Time
+*** Battery status
+** The current consumption should be zero on stand still mode
+** One 1 Ah battery should last for at least a year
